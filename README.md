@@ -4,14 +4,14 @@ Modul pembelajaran interaktif **Diagram Bode** untuk mahasiswa Sarjana Teknik El
 
 ---
 
-## 🚀 Buka di Google Colab
+## 🚀 Akses Cepat
 
-| File | Colab |
-|------|-------|
-| Modul Pembelajaran | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/username/Modul_Bode_Diagram/blob/main/bode_diagram_modul.ipynb) |
-| Tugas Mahasiswa | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/username/Modul_Bode_Diagram/blob/main/tugas_bode_diagram.ipynb) |
+[![Open Simulator](https://img.shields.io/badge/🔬%20Simulator%20Bode%20Interaktif-Buka%20Sekarang-0ea5e9?style=for-the-badge&logo=html5&logoColor=white)](https://isrunej.github.io/Modul_Bode_Diagram/bode_interactive.html)
 
-> **Ganti `username`** dengan username GitHub Anda setelah meng-upload repo.
+| File | Buka |
+|------|------|
+| Modul Pembelajaran | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/isrunej/Modul_Bode_Diagram/blob/main/bode_diagram_modul.ipynb) |
+| Tugas Mahasiswa | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/isrunej/Modul_Bode_Diagram/blob/main/tugas_bode_diagram.ipynb) |
 
 ---
 
@@ -58,7 +58,11 @@ jupyter notebook bode_diagram_modul.ipynb
 ```
 
 ### Opsi 3 — Simulator HTML
-Buka file `bode_interactive.html` langsung di browser (tidak perlu instalasi apapun).
+
+[![Open Simulator](https://img.shields.io/badge/🔬%20Buka%20Simulator%20Bode-Launch-blue?style=for-the-badge&logo=html5&logoColor=white)](https://isrunej.github.io/Modul_Bode_Diagram/bode_interactive.html)
+
+Klik tombol di atas atau buka langsung: [bode_interactive.html](https://isrunej.github.io/Modul_Bode_Diagram/bode_interactive.html)
+Tidak perlu instalasi apapun — langsung berjalan di browser.
 
 ---
 
