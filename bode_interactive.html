@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulator Diagram Bode Interaktif</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #263347;
+      --accent: #38bdf8;
+      --accent2: #fb923c;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --green: #4ade80;
+      --red: #f87171;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #0f4c8a 0%, #1e40af 50%, #0369a1 100%);
+      padding: 18px 32px;
+      border-bottom: 2px solid var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; }
+    header p  { font-size: 0.85rem; color: #bae6fd; margin-top: 2px; }
+    .badge {
+      background: rgba(56,189,248,0.2);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 99px;
+      font-size: 0.72rem;
+      padding: 2px 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .main { display: flex; gap: 0; min-height: calc(100vh - 70px); }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: 320px;
+      min-width: 300px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 12px; color: var(--accent); }
+
+    /* preset buttons */
+    .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .preset-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .preset-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(56,189,248,0.07); }
+    .preset-btn.active { border-color: var(--accent); background: rgba(56,189,248,0.12); color: var(--accent); font-weight: 600; }
+
+    /* TF input */
+    .tf-display {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      text-align: center;
+      margin-bottom: 12px;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .tf-num { border-bottom: 1px solid var(--accent); padding-bottom: 3px; }
+    .tf-den { padding-top: 3px; }
+
+    label { font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 4px; margin-top: 10px; }
+    input[type=text], input[type=number] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--accent); }
+    input.error { border-color: var(--red); }
+
+    /* sliders */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .slider-label { font-size: 0.78rem; color: var(--text-muted); min-width: 70px; }
+    .slider-val {
+      font-size: 0.82rem;
+      font-family: monospace;
+      color: var(--accent);
+      min-width: 52px;
+      text-align: right;
+    }
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    /* margin display */
+    .margin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .margin-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .margin-box .val { font-size: 1.3rem; font-weight: 700; font-family: monospace; }
+    .margin-box .lbl { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+    .margin-box.good .val { color: var(--green); }
+    .margin-box.bad  .val { color: var(--red); }
+    .margin-box.warn .val { color: var(--accent2); }
+
+    .stability-badge {
+      text-align: center;
+      border-radius: 8px;
+      padding: 8px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+    .stability-badge.stable   { background: rgba(74,222,128,0.12); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+    .stability-badge.unstable { background: rgba(248,113,113,0.12); color: var(--red);   border: 1px solid rgba(248,113,113,0.3); }
+    .stability-badge.marginal { background: rgba(251,146,60,0.12);  color: var(--accent2); border: 1px solid rgba(251,146,60,0.3); }
+
+    /* checkboxes */
+    .check-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .check-row input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+    .check-row label { margin: 0; font-size: 0.8rem; color: var(--text); cursor: pointer; }
+
+    /* info panel */
+    .info-box {
+      background: rgba(56,189,248,0.05);
+      border: 1px solid rgba(56,189,248,0.2);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+    .info-box b { color: var(--text); }
+
+    /* ===== PLOTS AREA ===== */
+    .plots-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .plot-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    #plot-mag, #plot-phase {
+      width: 100%;
+      height: 100%;
+    }
+    .error-msg {
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.3);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      color: var(--red);
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .main { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 Simulator Diagram Bode Interaktif</h1>
+    <p>Sistem Kontrol — Teknik Elektro &nbsp;|&nbsp; Visualisasi real-time respons frekuensi</p>
+  </div>
+  <span class="badge">JavaScript</span>
+</header>
+
+<div class="main">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+
+    <!-- Preset Systems -->
+    <div>
+      <div class="section-title">Sistem Contoh</div>
+      <div class="presets">
+        <button class="preset-btn active" onclick="loadPreset('p1_order1')">Orde 1<br><small>K/(τs+1)</small></button>
+        <button class="preset-btn" onclick="loadPreset('p2_order2')">Orde 2<br><small>ωₙ²/(s²+2ζωₙs+ωₙ²)</small></button>
+        <button class="preset-btn" onclick="loadPreset('p3_integrator')">Integrator<br><small>K/s(s+a)</small></button>
+        <button class="preset-btn" onclick="loadPreset('p4_lead')">Lead Comp<br><small>(αs+1)/(s+1)</small></button>
+        <button class="preset-btn" onclick="loadPreset('p5_triple')">3 Pole<br><small>K/s(s+1)(s+5)</small></button>
+        <button class="preset-btn" onclick="loadPreset('p6_nonmin')">Non-Min Phase<br><small>(1−s)/(s+1)²</small></button>
+      </div>
+    </div>
+
+    <!-- TF Input -->
+    <div class="card">
+      <h3>⚙️ Fungsi Alih H(s)</h3>
+      <div class="tf-display" id="tf-display">
+        <div class="tf-num" id="tf-num-display">1</div>
+        <div class="tf-den" id="tf-den-display">0.5s + 1</div>
+      </div>
+      <label>Numerator — koefisien dari pangkat tertinggi, pisahkan koma</label>
+      <input type="text" id="num-input" value="1" placeholder="cth: 1 2  →  s+2" />
+      <label>Denominator</label>
+      <input type="text" id="den-input" value="0.5, 1" placeholder="cth: 1 3 2  →  s²+3s+2" />
+      <div class="error-msg" id="error-msg">⚠️ Input tidak valid</div>
+      <div class="slider-row" style="margin-top:12px;">
+        <span class="slider-label">Gain K</span>
+        <input type="range" id="gain-slider" min="-40" max="40" step="1" value="0" oninput="onGainSlider(this.value)" />
+        <span class="slider-val" id="gain-val">+0 dB</span>
+      </div>
+    </div>
+
+    <!-- Display Options -->
+    <div class="card">
+      <h3>🎛️ Tampilan</h3>
+      <div class="check-row">
+        <input type="checkbox" id="show-asymptote" onchange="updatePlot()">
+        <label for="show-asymptote">Tampilkan Aproksimasi Asimtot</label>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="show-margin" checked onchange="updatePlot()">
+        <label for="show-margin">Tandai Gain & Phase Margin</label>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="show-crossover" checked onchange="updatePlot()">
+        <label for="show-crossover">Tandai Frekuensi Crossover</label>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="slider-row">
+          <span class="slider-label">ω min</span>
+          <input type="range" id="wmin-slider" min="-3" max="0" step="0.5" value="-2" oninput="updateOmegaRange()" />
+          <span class="slider-val" id="wmin-val">10⁻²</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label">ω max</span>
+          <input type="range" id="wmax-slider" min="1" max="5" step="0.5" value="3" oninput="updateOmegaRange()" />
+          <span class="slider-val" id="wmax-val">10³</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stability Margins -->
+    <div class="card">
+      <h3>📐 Margin Kestabilan</h3>
+      <div class="margin-grid">
+        <div class="margin-box" id="gm-box">
+          <div class="val" id="gm-val">—</div>
+          <div class="lbl">Gain Margin (dB)</div>
+        </div>
+        <div class="margin-box" id="pm-box">
+          <div class="val" id="pm-val">—</div>
+          <div class="lbl">Phase Margin (°)</div>
+        </div>
+        <div class="margin-box" id="wpc-box">
+          <div class="val" id="wpc-val">—</div>
+          <div class="lbl">ω_pc (rad/s)</div>
+        </div>
+        <div class="margin-box" id="wgc-box">
+          <div class="val" id="wgc-val">—</div>
+          <div class="lbl">ω_gc (rad/s)</div>
+        </div>
+      </div>
+      <div class="stability-badge marginal" id="stability-badge">⏳ Menghitung...</div>
+    </div>
+
+    <!-- Info -->
+    <div class="info-box">
+      <b>Petunjuk:</b><br>
+      • Masukkan koefisien polinomial dari <i>pangkat tertinggi</i><br>
+      • <code>1, 3, 2</code> → s² + 3s + 2<br>
+      • <code>1, 0, 0</code> → s² (double integrator)<br>
+      • Slider Gain K menambah/kurang gain dalam dB<br>
+      • Asimtot menggunakan pendekatan piece-wise linear<br><br>
+      <b>Kriteria Stabil:</b> GM > 0 dB <i>dan</i> PM > 0°
+    </div>
+
+  </aside>
+
+  <!-- ===== PLOTS ===== -->
+  <div class="plots-area">
+    <div class="plot-container">
+      <div id="plot-mag"></div>
+    </div>
+    <div class="plot-container">
+      <div id="plot-phase"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================================================
+//  POLYNOMIAL EVALUATION  &  UTILITY
+// =====================================================
+function polyval(coeffs, z) {
+  // Horner's method, z may be complex {re, im}
+  let re = 0, im = 0;
+  for (const c of coeffs) {
+    // (re + im*j) * z + c
+    const newRe = re * z.re - im * z.im + c;
+    const newIm = re * z.im + im * z.re;
+    re = newRe; im = newIm;
+  }
+  return { re, im };
+}
+
+function cmul(a, b) { return { re: a.re*b.re - a.im*b.im, im: a.re*b.im + a.im*b.re }; }
+function cdiv(a, b) {
+  const d = b.re*b.re + b.im*b.im;
+  return { re: (a.re*b.re + a.im*b.im)/d, im: (a.im*b.re - a.re*b.im)/d };
+}
+function cabs(c) { return Math.sqrt(c.re*c.re + c.im*c.im); }
+function carg(c) { return Math.atan2(c.im, c.re); }
+
+function linspace(a, b, n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) arr.push(a + (b-a)*i/(n-1));
+  return arr;
+}
+function logspace(a, b, n) {
+  return linspace(a, b, n).map(x => Math.pow(10, x));
+}
+
+function parseCoeffs(str) {
+  const parts = str.trim().split(/[\s,]+/).filter(s => s.length > 0);
+  const c = parts.map(Number);
+  if (c.some(isNaN) || c.length === 0) return null;
+  return c;
+}
+
+function unwrapPhase(phases) {
+  const out = [...phases];
+  for (let i = 1; i < out.length; i++) {
+    let diff = out[i] - out[i-1];
+    while (diff >  Math.PI) diff -= 2*Math.PI;
+    while (diff < -Math.PI) diff += 2*Math.PI;
+    out[i] = out[i-1] + diff;
+  }
+  return out;
+}
+
+// =====================================================
+//  BODE COMPUTATION
+// =====================================================
+let gainOffsetDB = 0;
+let wminExp = -2, wmaxExp = 3;
+
+function computeBode(num, den, npts = 1500) {
+  const omegas = logspace(wminExp, wmaxExp, npts);
+  const magDB = [], phaseRad = [];
+
+  const gainLin = Math.pow(10, gainOffsetDB / 20);
+
+  for (const w of omegas) {
+    const jw = { re: 0, im: w };
+    const N = polyval(num, jw);
+    const D = polyval(den, jw);
+    const H = cdiv(N, D);
+    const mag = cabs(H) * gainLin;
+    magDB.push(20 * Math.log10(mag > 1e-300 ? mag : 1e-300));
+    phaseRad.push(carg(H));
+  }
+
+  const phaseUnwrapped = unwrapPhase(phaseRad);
+  const phaseDeg = phaseUnwrapped.map(r => r * 180 / Math.PI);
+
+  return { omegas, magDB, phaseDeg };
+}
+
+// =====================================================
+//  STABILITY MARGINS  (numerical search)
+// =====================================================
+function computeMargins(omegas, magDB, phaseDeg) {
+  let wgc = null, pm = null, wpc = null, gm = null;
+
+  // gain crossover: where magDB crosses 0
+  for (let i = 1; i < omegas.length; i++) {
+    if (magDB[i-1] * magDB[i] <= 0) {
+      const t = -magDB[i-1] / (magDB[i] - magDB[i-1]);
+      const w = omegas[i-1] + t*(omegas[i]-omegas[i-1]);
+      const ph = phaseDeg[i-1] + t*(phaseDeg[i]-phaseDeg[i-1]);
+      if (wgc === null || Math.abs(magDB[i]) < Math.abs(magDB[Math.round(i*t)])) {
+        wgc = w;
+        pm = 180 + ph;
+      }
+    }
+  }
+
+  // phase crossover: where phase crosses -180
+  for (let i = 1; i < omegas.length; i++) {
+    const p1 = phaseDeg[i-1], p2 = phaseDeg[i];
+    // Check crossing of -180 (and -540, -900 for extra cycles)
+    for (const target of [-180, -540, -900]) {
+      if ((p1 - target) * (p2 - target) <= 0 && p1 !== p2) {
+        const t = (target - p1) / (p2 - p1);
+        const w = omegas[i-1] + t*(omegas[i]-omegas[i-1]);
+        const m = magDB[i-1] + t*(magDB[i]-magDB[i-1]);
+        if (wpc === null) { wpc = w; gm = -m; }
+        break;
+      }
+    }
+    if (wpc) break;
+  }
+
+  return { wgc, pm, wpc, gm };
+}
+
+// =====================================================
+//  ASYMPTOTE (simplified, straight-line approx)
+// =====================================================
+function computeAsymptote(num, den, omegas) {
+  // Find real roots of num and den for corners
+  // Simple approach: use magnitude of Bode with imaginary poles removed
+  // For display only — piecewise linear via corner frequencies
+
+  // We'll compute DC gain and slopes from pole/zero count
+  // Find approximate corner freqs as |roots|
+  const corners = [];
+
+  function polyRoots1(c) {
+    // Only real roots from simple factors — approximate as -c[1]/c[0]
+    if (c.length === 2) return [Math.abs(c[1]/c[0])];
+    if (c.length === 3) {
+      // s^2+bs+c => roots at (-b±sqrt(b²-4c))/2
+      const b = c[1]/c[0], cc = c[2]/c[0];
+      const disc = b*b - 4*cc;
+      if (disc >= 0) return [Math.abs((-b+Math.sqrt(disc))/2), Math.abs((-b-Math.sqrt(disc))/2)];
+      return [Math.sqrt(Math.abs(cc))]; // natural freq for complex pair
+    }
+    return [];
+  }
+
+  // Compute straight-line mag from actual Bode but at decade-spaced points
+  // (For a fully general asymptote we'd need factoring; instead we draw the piecewise from key points)
+  const asymMag = [];
+  const dcGainLin = Math.pow(10, gainOffsetDB/20) * Math.abs(polyval(num,{re:1e-6,im:0}).re / polyval(den,{re:1e-6,im:0}).re);
+  const dcGainDB = 20*Math.log10(dcGainLin > 1e-300 ? dcGainLin : 1e-300);
+
+  // We'll just do a coarser version of the actual bode at 1/decade grid and
+  // connect them with straight lines — a good visual approximation
+  const decades = linspace(wminExp, wmaxExp, Math.round((wmaxExp-wminExp)*4+1));
+  const decOmega = decades.map(d => Math.pow(10,d));
+  const decMag = decOmega.map(w => {
+    const jw = {re:0, im:w};
+    const N = polyval(num, jw), D = polyval(den, jw);
+    const H = cdiv(N, D);
+    const m = cabs(H) * Math.pow(10, gainOffsetDB/20);
+    return 20*Math.log10(m > 1e-300 ? m : 1e-300);
+  });
+
+  // Interpolate onto omegas
+  for (const w of omegas) {
+    const logw = Math.log10(w);
+    let idx = decades.findIndex(d => d > logw);
+    if (idx <= 0) { asymMag.push(decMag[0]); continue; }
+    if (idx >= decades.length) { asymMag.push(decMag[decMag.length-1]); continue; }
+    const t = (logw - decades[idx-1]) / (decades[idx] - decades[idx-1]);
+    asymMag.push(decMag[idx-1] + t*(decMag[idx]-decMag[idx-1]));
+  }
+  return asymMag;
+}
+
+// =====================================================
+//  DISPLAY UPDATE
+// =====================================================
+function polyToString(coeffs) {
+  if (!coeffs || coeffs.length === 0) return '0';
+  const n = coeffs.length - 1;
+  let terms = [];
+  coeffs.forEach((c, i) => {
+    const power = n - i;
+    if (c === 0) return;
+    const sign = c > 0 ? (terms.length > 0 ? '+' : '') : '−';
+    const ac = Math.abs(c);
+    const coefStr = ac === 1 && power > 0 ? '' : ac.toString();
+    if (power === 0) terms.push(`${sign}${ac}`);
+    else if (power === 1) terms.push(`${sign}${coefStr}s`);
+    else terms.push(`${sign}${coefStr}s^${power}`);
+  });
+  return terms.join(' ') || '0';
+}
+
+let currentNum = [1], currentDen = [0.5, 1];
+
+function updatePlot() {
+  const numStr = document.getElementById('num-input').value;
+  const denStr = document.getElementById('den-input').value;
+  const errEl = document.getElementById('error-msg');
+
+  const num = parseCoeffs(numStr);
+  const den = parseCoeffs(denStr);
+
+  if (!num || !den || den.every(x => x === 0)) {
+    errEl.style.display = 'block';
+    errEl.textContent = '⚠️ Input tidak valid — pastikan koefisien berupa angka';
+    return;
+  }
+  errEl.style.display = 'none';
+  currentNum = num; currentDen = den;
+
+  document.getElementById('num-input').classList.remove('error');
+  document.getElementById('den-input').classList.remove('error');
+
+  // Update TF display
+  const gainLin = Math.pow(10, gainOffsetDB/20);
+  const scaledNum = num.map(c => +(c * gainLin).toPrecision(4));
+  document.getElementById('tf-num-display').textContent = polyToString(scaledNum);
+  document.getElementById('tf-den-display').textContent = polyToString(den);
+
+  const { omegas, magDB, phaseDeg } = computeBode(num, den);
+  const { wgc, pm, wpc, gm } = computeMargins(omegas, magDB, phaseDeg);
+
+  const showAsymptote = document.getElementById('show-asymptote').checked;
+  const showMargin    = document.getElementById('show-margin').checked;
+  const showCrossover = document.getElementById('show-crossover').checked;
+
+  const plotBg = '#0f172a', gridColor = '#1e3352', lineColor = '#334155';
+  const axisFont = { color: '#94a3b8', family: 'Segoe UI, sans-serif' };
+
+  // ===== Magnitude traces =====
+  const tracesMag = [{
+    x: omegas, y: magDB,
+    type: 'scatter', mode: 'lines',
+    name: '|H(jω)| (dB)',
+    line: { color: '#38bdf8', width: 2.5 }
+  }];
+
+  if (showAsymptote) {
+    const asymMag = computeAsymptote(num, den, omegas);
+    tracesMag.push({
+      x: omegas, y: asymMag,
+      type: 'scatter', mode: 'lines',
+      name: 'Asimtot',
+      line: { color: '#fb923c', width: 1.5, dash: 'dot' }
+    });
+  }
+
+  const shapesMag = [], annotationsMag = [];
+
+  if (showCrossover && wgc) {
+    shapesMag.push({ type:'line', x0:wgc, x1:wgc, y0:0, y1:1, yref:'paper',
+      xref:'x', line:{color:'#f87171', width:1.5, dash:'dash'} });
+    annotationsMag.push({ x:Math.log10(wgc), y:0.05, xref:'x', yref:'paper',
+      text:`ω<sub>gc</sub>=${wgc.toPrecision(3)}`, showarrow:false,
+      font:{color:'#f87171', size:10}, bgcolor:'rgba(15,23,42,0.7)', borderpad:3 });
+  }
+  if (showMargin && showCrossover && wpc) {
+    shapesMag.push({ type:'line', x0:wpc, x1:wpc, y0:0, y1:1, yref:'paper',
+      xref:'x', line:{color:'#4ade80', width:1.5, dash:'dash'} });
+    annotationsMag.push({ x:Math.log10(wpc), y:0.95, xref:'x', yref:'paper',
+      text:`ω<sub>pc</sub>=${wpc.toPrecision(3)}`, showarrow:false,
+      font:{color:'#4ade80', size:10}, bgcolor:'rgba(15,23,42,0.7)', borderpad:3 });
+  }
+  if (showMargin && wpc && gm !== null) {
+    const magAtWpc = 20*Math.log10(cabs(cdiv(polyval(num,{re:0,im:wpc}), polyval(den,{re:0,im:wpc}))) * Math.pow(10,gainOffsetDB/20));
+    shapesMag.push({ type:'line', x0:wpc, x1:wpc, y0:magAtWpc, y1:0, xref:'x', yref:'y',
+      line:{color:'#4ade80', width:2} });
+    annotationsMag.push({ x:Math.log10(wpc*1.3), y:(magAtWpc)/2, xref:'x', yref:'y',
+      text:`GM=${gm.toFixed(1)} dB`, showarrow:false,
+      font:{color:'#4ade80', size:11, family:'monospace'}, bgcolor:'rgba(15,23,42,0.8)', borderpad:4 });
+  }
+
+  Plotly.react('plot-mag', tracesMag, {
+    paper_bgcolor: plotBg, plot_bgcolor: plotBg,
+    margin: { t:36, r:20, b:40, l:60 },
+    title: { text:'Plot Magnitude', font:{color:'#e2e8f0', size:13}, x:0.02 },
+    xaxis: {
+      type:'log', title:{text:'ω (rad/s)', font:axisFont},
+      tickfont:axisFont, gridcolor:gridColor, linecolor:lineColor,
+      range:[wminExp, wmaxExp]
+    },
+    yaxis: {
+      title:{text:'Magnitude (dB)', font:axisFont},
+      tickfont:axisFont, gridcolor:gridColor, linecolor:lineColor,
+      zeroline:true, zerolinecolor:'#475569', zerolinewidth:1.5
+    },
+    legend: { font:{color:'#94a3b8', size:10}, bgcolor:'rgba(30,41,59,0.8)', bordercolor:lineColor, borderwidth:1 },
+    shapes: shapesMag,
+    annotations: annotationsMag,
+    hovermode: 'x unified',
+    hoverlabel: { bgcolor:'#1e293b', bordercolor:'#38bdf8', font:{color:'#e2e8f0', size:11} }
+  }, { responsive: true });
+
+  // ===== Phase traces =====
+  const tracesPhase = [{
+    x: omegas, y: phaseDeg,
+    type: 'scatter', mode: 'lines',
+    name: '∠H(jω) (°)',
+    line: { color: '#a78bfa', width: 2.5 }
+  }];
+
+  const shapesPhase = [], annotationsPhase = [];
+
+  if (showCrossover && wgc) {
+    shapesPhase.push({ type:'line', x0:wgc, x1:wgc, y0:0, y1:1, yref:'paper',
+      xref:'x', line:{color:'#f87171', width:1.5, dash:'dash'} });
+  }
+  if (showCrossover && wpc) {
+    shapesPhase.push({ type:'line', x0:wpc, x1:wpc, y0:0, y1:1, yref:'paper',
+      xref:'x', line:{color:'#4ade80', width:1.5, dash:'dash'} });
+  }
+  if (showMargin && wgc && pm !== null) {
+    const phAtWgc = phaseDeg[omegas.findIndex(w => w >= wgc)] ?? phaseDeg[phaseDeg.length-1];
+    shapesPhase.push({ type:'line', x0:wgc, x1:wgc, y0:-180, y1:phAtWgc, xref:'x', yref:'y',
+      line:{color:'#f87171', width:2} });
+    annotationsPhase.push({ x:Math.log10(wgc*1.3), y:(-180+phAtWgc)/2, xref:'x', yref:'y',
+      text:`PM=${pm.toFixed(1)}°`, showarrow:false,
+      font:{color:'#f87171', size:11, family:'monospace'}, bgcolor:'rgba(15,23,42,0.8)', borderpad:4 });
+  }
+
+  Plotly.react('plot-phase', tracesPhase, {
+    paper_bgcolor: plotBg, plot_bgcolor: plotBg,
+    margin: { t:36, r:20, b:50, l:60 },
+    title: { text:'Plot Fase', font:{color:'#e2e8f0', size:13}, x:0.02 },
+    xaxis: {
+      type:'log', title:{text:'ω (rad/s)', font:axisFont},
+      tickfont:axisFont, gridcolor:gridColor, linecolor:lineColor,
+      range:[wminExp, wmaxExp]
+    },
+    yaxis: {
+      title:{text:'Fase (derajat)', font:axisFont},
+      tickfont:axisFont, gridcolor:gridColor, linecolor:lineColor,
+      zeroline:true, zerolinecolor:'#475569', zerolinewidth:1,
+      tickmode:'array',
+      tickvals:[-360,-270,-180,-90,0,90,180],
+      ticktext:['-360°','-270°','-180°','-90°','0°','90°','180°']
+    },
+    shapes: [
+      ...shapesPhase,
+      { type:'line', x0:Math.pow(10,wminExp), x1:Math.pow(10,wmaxExp), y0:-180, y1:-180,
+        xref:'x', yref:'y', line:{color:'#64748b', width:1, dash:'dot'} }
+    ],
+    annotations: annotationsPhase,
+    hovermode: 'x unified',
+    hoverlabel: { bgcolor:'#1e293b', bordercolor:'#a78bfa', font:{color:'#e2e8f0', size:11} }
+  }, { responsive: true });
+
+  // ===== Update margin boxes =====
+  updateMarginDisplay(gm, pm, wpc, wgc);
+}
+
+function updateMarginDisplay(gm, pm, wpc, wgc) {
+  const fmt = (v, dec=2) => v === null || isNaN(v) ? '∞' : v.toFixed(dec);
+
+  const gmEl  = document.getElementById('gm-val');
+  const pmEl  = document.getElementById('pm-val');
+  const wpcEl = document.getElementById('wpc-val');
+  const wgcEl = document.getElementById('wgc-val');
+  const gmBox = document.getElementById('gm-box');
+  const pmBox = document.getElementById('pm-box');
+  const badge = document.getElementById('stability-badge');
+
+  gmEl.textContent  = gm  !== null ? gm.toFixed(1)  : '∞';
+  pmEl.textContent  = pm  !== null ? pm.toFixed(1)  : '—';
+  wpcEl.textContent = wpc !== null ? wpc.toPrecision(3) : '—';
+  wgcEl.textContent = wgc !== null ? wgc.toPrecision(3) : '—';
+
+  const gmOk = gm === null || gm > 0;
+  const pmOk = pm !== null && pm > 0;
+
+  gmBox.className = 'margin-box ' + (gm === null ? '' : gm > 6 ? 'good' : gm > 0 ? 'warn' : 'bad');
+  pmBox.className = 'margin-box ' + (pm === null ? '' : pm > 30 ? 'good' : pm > 0 ? 'warn' : 'bad');
+
+  if (gmOk && pmOk) {
+    badge.className = 'stability-badge stable';
+    badge.textContent = '✅ Sistem STABIL';
+  } else if (!gmOk || (pm !== null && pm < 0)) {
+    badge.className = 'stability-badge unstable';
+    badge.textContent = '❌ Sistem TIDAK STABIL';
+  } else {
+    badge.className = 'stability-badge marginal';
+    badge.textContent = '⚠️ Perlu verifikasi';
+  }
+}
+
+// =====================================================
+//  PRESETS
+// =====================================================
+const PRESETS = {
+  p1_order1:    { num: [1],           den: [0.5, 1],       label: 'Orde 1' },
+  p2_order2:    { num: [4],           den: [1, 0.8, 4],    label: 'Orde 2 (ωₙ=2, ζ=0.2)' },
+  p3_integrator:{ num: [10],          den: [1, 2, 0],      label: 'K/s(s+2)' },
+  p4_lead:      { num: [5, 5],        den: [1, 1],         label: 'Kompensator Lead' },
+  p5_triple:    { num: [1],           den: [1, 6, 5, 0],   label: '1/s(s+1)(s+5)' },
+  p6_nonmin:    { num: [-1, 1],       den: [1, 2, 1],      label: 'Non-min Phase' },
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('num-input').value = p.num.join(', ');
+  document.getElementById('den-input').value = p.den.join(', ');
+  gainOffsetDB = 0;
+  document.getElementById('gain-slider').value = 0;
+  document.getElementById('gain-val').textContent = '+0 dB';
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  event.target.closest('.preset-btn').classList.add('active');
+  updatePlot();
+}
+
+// =====================================================
+//  GAIN SLIDER
+// =====================================================
+function onGainSlider(val) {
+  gainOffsetDB = parseFloat(val);
+  const sign = gainOffsetDB >= 0 ? '+' : '';
+  document.getElementById('gain-val').textContent = `${sign}${gainOffsetDB} dB`;
+  updatePlot();
+}
+
+// =====================================================
+//  OMEGA RANGE
+// =====================================================
+function updateOmegaRange() {
+  wminExp = parseFloat(document.getElementById('wmin-slider').value);
+  wmaxExp = parseFloat(document.getElementById('wmax-slider').value);
+  document.getElementById('wmin-val').textContent = `10${toSuperscript(wminExp)}`;
+  document.getElementById('wmax-val').textContent = `10${toSuperscript(wmaxExp)}`;
+  updatePlot();
+}
+
+function toSuperscript(n) {
+  const map = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','-':'⁻'};
+  return String(n).split('').map(c => map[c] || c).join('');
+}
+
+// Live update on input change
+['num-input','den-input'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    updatePlot();
+  });
+});
+
+// Initial render
+updatePlot();
+</script>
+</body>
+</html>
