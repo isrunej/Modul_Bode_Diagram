@@ -1,0 +1,459 @@
+
+<h2 class="sr-only">Simulasi desain sistem kontrol — PID dan kompensator lead/lag</h2>
+<style>
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem;margin-bottom:12px}
+.sec{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px}
+.ctrl-tab{padding:6px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;font-size:13px}
+.ctrl-tab.on{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);font-weight:500}
+.met{text-align:center;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:7px 10px;min-width:58px}
+.mv{font-size:15px;font-weight:500;font-family:var(--font-mono);line-height:1.2}
+.ml{font-size:10px;color:var(--color-text-secondary)}
+.sl-row{margin-bottom:11px}
+.sl-hdr{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
+.sl-v{font-family:var(--font-mono);color:var(--color-text-info);font-weight:500}
+.tf{font-family:var(--font-mono);font-size:12px;background:var(--color-background-secondary);padding:8px 10px;border-radius:var(--border-radius-md);line-height:1.9}
+.bOK{background:var(--color-background-success);color:var(--color-text-success);padding:2px 7px;border-radius:4px;font-size:11px;font-weight:500}
+.bNG{background:var(--color-background-danger);color:var(--color-text-danger);padding:2px 7px;border-radius:4px;font-size:11px;font-weight:500}
+.znmsg{font-size:11px;padding:6px 8px;border-radius:var(--border-radius-md);margin-top:6px}
+#cpanels>div{display:none}
+#cpanels>div.vis{display:flex;flex-wrap:wrap;gap:18px}
+</style>
+
+<!-- Plant bar -->
+<div class="card">
+  <p class="sec">Plant</p>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start">
+    <div style="flex:1 1 150px">
+      <label style="font-size:11px;color:var(--color-text-secondary);display:block;margin-bottom:4px">Pilih kelompok</label>
+      <select id="pSel" style="display:block;width:100%"></select>
+    </div>
+    <div style="flex:2 1 220px">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px">G(s)</div>
+      <div id="pLbl" class="tf" style="font-size:13px"></div>
+    </div>
+    <div style="flex:1 1 180px">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:6px">Margin stabilitas — open loop</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap" id="margOL"></div>
+    </div>
+    <div style="flex:1 1 160px">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px">Spesifikasi</div>
+      <div id="specBadge" style="font-size:12px;background:var(--color-background-warning);color:var(--color-text-warning);padding:6px 8px;border-radius:var(--border-radius-md)"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Controller -->
+<div class="card">
+  <p class="sec">Kontroler</p>
+  <div style="margin-bottom:14px;display:flex;gap:6px;flex-wrap:wrap">
+    <button class="ctrl-tab on" data-c="none">Tanpa kontroler</button>
+    <button class="ctrl-tab" data-c="pid">PID</button>
+    <button class="ctrl-tab" data-c="lead">Lead</button>
+    <button class="ctrl-tab" data-c="lag">Lag</button>
+    <button class="ctrl-tab" data-c="leadlag">Lead-lag</button>
+  </div>
+  <div id="cpanels">
+    <div id="cp-none" class="vis" style="padding:6px 0;font-size:13px;color:var(--color-text-secondary)">
+      Respon closed-loop unity-feedback tanpa kontroler.
+    </div>
+    <div id="cp-pid">
+      <div style="flex:1 1 210px">
+        <div class="sl-row"><div class="sl-hdr"><span>Kp</span><span class="sl-v" id="vKp">2</span></div><input type="range" id="slKp" min="0.01" max="50" step="0.01" value="2"></div>
+        <div class="sl-row"><div class="sl-hdr"><span>Ki</span><span class="sl-v" id="vKi">0.5</span></div><input type="range" id="slKi" min="0" max="20" step="0.01" value="0.5"></div>
+        <div class="sl-row"><div class="sl-hdr"><span>Kd</span><span class="sl-v" id="vKd">0.2</span></div><input type="range" id="slKd" min="0" max="10" step="0.005" value="0.2"></div>
+      </div>
+      <div style="flex:1 1 170px">
+        <button id="btnZN" style="width:100%;padding:8px;margin-bottom:8px"><i class="ti ti-bolt" aria-hidden="true"></i> ZN auto-tune</button>
+        <div id="znMsg" class="znmsg"></div>
+        <div class="tf" style="margin-top:8px">C(s) = Kp + Ki/s + Kd·s<br><span id="pidTF" style="font-size:11px;color:var(--color-text-secondary)"></span></div>
+      </div>
+    </div>
+    <div id="cp-lead">
+      <div style="flex:1 1 210px">
+        <div class="sl-row"><div class="sl-hdr"><span>K</span><span class="sl-v" id="vldK">1</span></div><input type="range" id="slldK" min="0.1" max="10" step="0.05" value="1"></div>
+        <div class="sl-row"><div class="sl-hdr"><span>α — rasio pole/zero (&gt;1)</span><span class="sl-v" id="vldAl">5</span></div><input type="range" id="slldAl" min="1.1" max="30" step="0.1" value="5"></div>
+        <div class="sl-row"><div class="sl-hdr"><span>T (s)</span><span class="sl-v" id="vldT">0.3</span></div><input type="range" id="slldT" min="0.001" max="5" step="0.001" value="0.3"></div>
+      </div>
+      <div style="flex:1 1 170px">
+        <div class="sl-row"><div class="sl-hdr"><span>Target PM (°)</span><span class="sl-v" id="vtpm">50</span></div><input type="range" id="sltpm" min="20" max="80" step="1" value="50"></div>
+        <button id="btnLA" style="width:100%;padding:8px;margin-bottom:8px"><i class="ti ti-bolt" aria-hidden="true"></i> Auto-design lead</button>
+        <div class="tf" id="leadTF"></div>
+      </div>
+    </div>
+    <div id="cp-lag">
+      <div style="flex:1 1 210px">
+        <div class="sl-row"><div class="sl-hdr"><span>K</span><span class="sl-v" id="vlgK">1</span></div><input type="range" id="sllgK" min="0.1" max="10" step="0.05" value="1"></div>
+        <div class="sl-row"><div class="sl-hdr"><span>β — rasio (&gt;1)</span><span class="sl-v" id="vlgBe">5</span></div><input type="range" id="sllgBe" min="1.1" max="30" step="0.1" value="5"></div>
+        <div class="sl-row"><div class="sl-hdr"><span>T (s)</span><span class="sl-v" id="vlgT">5</span></div><input type="range" id="sllgT" min="0.1" max="100" step="0.1" value="5"></div>
+      </div>
+      <div style="flex:1 1 170px"><div class="tf" id="lagTF"></div></div>
+    </div>
+    <div id="cp-leadlag">
+      <div style="flex:1 1 155px">
+        <div style="font-size:11px;font-weight:500;color:var(--color-text-info);margin-bottom:8px">Lead portion</div>
+        <div class="sl-row"><div class="sl-hdr"><span>α</span><span class="sl-v" id="vllAl">5</span></div><input type="range" id="slllAl" min="1.1" max="30" step="0.1" value="5"></div>
+        <div class="sl-row"><div class="sl-hdr"><span>T₁ (s)</span><span class="sl-v" id="vllT1">0.3</span></div><input type="range" id="slllT1" min="0.001" max="5" step="0.001" value="0.3"></div>
+      </div>
+      <div style="flex:1 1 155px">
+        <div style="font-size:11px;font-weight:500;color:var(--color-text-warning);margin-bottom:8px">Lag portion</div>
+        <div class="sl-row"><div class="sl-hdr"><span>β</span><span class="sl-v" id="vllBe">5</span></div><input type="range" id="slllBe" min="1.1" max="30" step="0.1" value="5"></div>
+        <div class="sl-row"><div class="sl-hdr"><span>T₂ (s)</span><span class="sl-v" id="vllT2">5</span></div><input type="range" id="slllT2" min="0.1" max="100" step="0.1" value="5"></div>
+      </div>
+      <div style="flex:1 1 130px">
+        <div class="sl-row"><div class="sl-hdr"><span>K</span><span class="sl-v" id="vllK">1</span></div><input type="range" id="slllK" min="0.1" max="10" step="0.05" value="1"></div>
+        <div class="tf" style="font-size:10px">Gc = K·(αT₁s+1)/(T₁s+1)·(T₂s+1)/(βT₂s+1)</div>
+      </div>
+    </div>
+  </div>
+  <div id="cmargins" style="display:none;margin-top:12px;padding-top:12px;border-top:0.5px solid var(--color-border-tertiary)">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div style="display:flex;gap:7px;flex-wrap:wrap" id="margLoop"></div>
+      <div id="specChecks" style="font-size:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+  <div class="card" style="margin-bottom:0">
+    <p class="sec" style="margin:0 0 7px">Step response — closed-loop</p>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px" id="stepMet"></div>
+    <div style="position:relative;height:210px"><canvas id="cStep" role="img" aria-label="Step response of closed-loop system — gray: no controller, blue: with controller, red dashed: reference"></canvas></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--color-text-secondary)">
+      <span>tEnd</span>
+      <input type="range" id="slTend" min="3" max="60" step="1" value="15" style="width:80px">
+      <span id="vTend" style="font-family:var(--font-mono);color:var(--color-text-info)">15 s</span>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:0">
+    <p class="sec" style="margin:0 0 7px">Bode diagram — loop gain</p>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px" id="bodeMet"></div>
+    <div style="position:relative;height:140px"><canvas id="cMag" role="img" aria-label="Bode magnitude plot in dB versus frequency"></canvas></div>
+    <div style="position:relative;height:120px;margin-top:4px"><canvas id="cPh" role="img" aria-label="Bode phase plot in degrees versus frequency"></canvas></div>
+  </div>
+</div>
+
+<div style="background:var(--color-background-info);border:0.5px solid var(--color-border-info);border-radius:var(--border-radius-lg);padding:10px 14px;font-size:12px;color:var(--color-text-info)">
+  <i class="ti ti-info-circle" aria-hidden="true"></i>
+  <strong>Alur:</strong> Pilih plant → pilih kontroler → geser parameter atau klik auto-tune.
+  PM ideal: 40°–60° | GM ideal: ≥ 6 dB.
+  <span style="color:var(--color-text-secondary)">Abu-abu</span> = CL tanpa kontroler |
+  <span style="color:var(--color-text-info)">Biru</span> = dengan kontroler |
+  <span style="color:var(--color-text-danger)">Merah</span> = garis referensi.
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// === MATH ===
+function pEval(c,re,im){let rr=0,ri=0;for(const v of c){const nr=rr*re-ri*im+v,ni=rr*im+ri*re;rr=nr;ri=ni;}return[rr,ri];}
+function pMul(a,b){const r=new Array(a.length+b.length-1).fill(0);a.forEach((ai,i)=>b.forEach((bj,j)=>{r[i+j]+=ai*bj;}));return r;}
+function pAdd(a,b){const n=Math.max(a.length,b.length);const pa=[...Array(n-a.length).fill(0),...a],pb=[...Array(n-b.length).fill(0),...b];return pa.map((v,i)=>v+pb[i]);}
+
+function stepResp(num,den,T,N){
+  const d0=den[0];if(!d0)return[];
+  const a=den.map(c=>c/d0),br=num.map(c=>c/d0);
+  const n=a.length-1;
+  if(n<=0)return Array.from({length:N+1},(_,i)=>({x:+(T*i/N).toFixed(3),y:br[0]||0}));
+  const b=[...Array(n+1-br.length).fill(0),...br];
+  const D=b[0],Cv=b.slice(1).map((bi,i)=>bi-D*a[i+1]);
+  const dt=T/N;
+  const f=x=>{const dx=Array(n).fill(0);for(let i=0;i<n-1;i++)dx[i]=x[i+1];let last=1;for(let i=0;i<n;i++)last-=a[n-i]*x[i];dx[n-1]=last;return dx;};
+  const rk4=x=>{const k1=f(x),k2=f(x.map((v,i)=>v+dt/2*k1[i])),k3=f(x.map((v,i)=>v+dt/2*k2[i])),k4=f(x.map((v,i)=>v+dt*k3[i]));return x.map((v,i)=>v+dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));};
+  let x=Array(n).fill(0);const data=[];
+  for(let i=0;i<=N;i++){const y=Cv.reduce((s,ci,idx)=>s+ci*x[idx],0)+D;data.push({x:+(i*dt).toFixed(3),y:isFinite(y)?+y.toFixed(5):0});if(i<N)x=rk4(x);}
+  return data;
+}
+
+function bodeCalc(num,den,N){
+  const out=[];let prev=null,cum=0;
+  for(let i=0;i<N;i++){
+    const lw=-2+(6)*i/(N-1),w=Math.pow(10,lw);
+    const[nr,ni]=pEval(num,0,w),[dr,di]=pEval(den,0,w);
+    const mD=Math.sqrt(dr*dr+di*di);if(mD<1e-15){out.push(null);continue;}
+    const mag=20*Math.log10(Math.sqrt(nr*nr+ni*ni)/mD);
+    const ph=(Math.atan2(ni,nr)-Math.atan2(di,dr))*180/Math.PI;
+    if(prev!==null){let d=ph-prev;while(d>180)d-=360;while(d<-180)d+=360;cum+=d;}else cum=ph;
+    prev=ph;
+    out.push({lw,mag:isFinite(mag)?+mag.toFixed(2):null,ph:+cum.toFixed(2)});
+  }
+  return out;
+}
+
+function margins(bd){
+  let pm=null,gm=null,wcg=null,wcp=null;
+  for(let i=0;i<bd.length-1;i++){
+    const b0=bd[i],b1=bd[i+1];if(!b0||!b1||b0.mag===null||b1.mag===null)continue;
+    if(b0.mag*b1.mag<=0&&pm===null){const t=b0.mag/(b0.mag-b1.mag);pm=+(180+b0.ph+t*(b1.ph-b0.ph)).toFixed(1);wcg=+Math.pow(10,b0.lw+t*(b1.lw-b0.lw)).toFixed(3);}
+    if((b0.ph+180)*(b1.ph+180)<=0&&b0.ph<-30&&gm===null){const t=(b0.ph+180)/(b0.ph-b1.ph);gm=+(-(b0.mag+t*(b1.mag-b0.mag))).toFixed(1);wcp=+Math.pow(10,b0.lw+t*(b1.lw-b0.lw)).toFixed(3);}
+  }
+  return{pm,gm,wcg,wcp};
+}
+
+function stepMet(data){
+  if(!data||data.length<20)return{os:0,ts:0,yss:0};
+  const n10=Math.max(1,Math.floor(data.length*.1));
+  const yss=data.slice(-n10).reduce((s,d)=>s+d.y,0)/n10;
+  const ymax=Math.max(...data.map(d=>d.y));
+  const os=Math.abs(yss)>.005?Math.max(0,100*(ymax-yss)/yss):0;
+  let ts=data[data.length-1].x;
+  const band=.02*Math.abs(yss);
+  for(let i=data.length-1;i>=0;i--){if(Math.abs(data[i].y-yss)>band){ts=data[Math.min(i+1,data.length-1)].x;break;}}
+  return{yss:+yss.toFixed(4),os:+os.toFixed(1),ts:+ts.toFixed(2)};
+}
+
+function znTune(num,den){
+  const bd=bodeCalc(num,den,3000);
+  for(let i=0;i<bd.length-1;i++){
+    const b0=bd[i],b1=bd[i+1];if(!b0||!b1)continue;
+    if((b0.ph+180)*(b1.ph+180)<=0&&b0.ph<-90){
+      const t=(b0.ph+180)/(b0.ph-b1.ph);
+      const m180=b0.mag+t*(b1.mag-b0.mag),wpc=Math.pow(10,b0.lw+t*(b1.lw-b0.lw));
+      const Ku=Math.pow(10,-m180/20),Tu=2*Math.PI/wpc;
+      return{ok:1,m:2,Ku:+Ku.toFixed(3),Tu:+Tu.toFixed(3),Kp:+(0.6*Ku).toFixed(3),Ki:+(1.2*Ku/Tu).toFixed(4),Kd:+(0.075*Ku*Tu).toFixed(4)};
+    }
+  }
+  const st=stepResp(num,den,80,1200);
+  let ms=0,mi=0;
+  for(let i=8;i<st.length-8;i++){const s=(st[i+8].y-st[i-8].y)/(st[i+8].x-st[i-8].x);if(s>ms){ms=s;mi=i;}}
+  if(ms<1e-8)return{ok:0,msg:"Tidak ditemukan phase crossover. Coba metode manual."};
+  const yss=st[st.length-1].y,tI=st[mi].x,yI=st[mi].y;
+  const L=tI-yI/ms,Tv=yss/ms-L;
+  if(L<=0||Tv<=0)return{ok:0,msg:"Parameter L/T tidak valid untuk ZN-1."};
+  return{ok:1,m:1,L:+L.toFixed(3),T:+Tv.toFixed(3),Kp:+(1.2*Tv/L).toFixed(3),Ki:+(0.6*Tv/L/L).toFixed(4),Kd:+(0.6*Tv).toFixed(4)};
+}
+
+function leadAuto(num,den,tgt){
+  const bd=bodeCalc(num,den,2000);
+  const{pm}=margins(bd);
+  const phiAdd=Math.min(78,(tgt-(pm||0)+8))*Math.PI/180;
+  if(phiAdd<=0)return{al:1.5,T:1};
+  const s=Math.sin(phiAdd),al=(1+s)/(1-s);
+  const tgtM=-10*Math.log10(al)/2;
+  for(let i=0;i<bd.length-1;i++){
+    const b0=bd[i],b1=bd[i+1];if(!b0||!b1||b0.mag===null||b1.mag===null)continue;
+    if((b0.mag-tgtM)*(b1.mag-tgtM)<=0){
+      const t=(b0.mag-tgtM)/(b0.mag-b1.mag),wc=Math.pow(10,b0.lw+t*(b1.lw-b0.lw));
+      return{al:+al.toFixed(2),T:+(1/(wc*Math.sqrt(al))).toFixed(5)};
+    }
+  }
+  return{al:+al.toFixed(2),T:0.1};
+}
+
+// === PLANTS ===
+const PL=[
+  {id:1,num:[10],den:[1,6,5],lbl:"10 / [(s+1)(s+5)]",spec:"OS ≤ 10%, ts ≤ 2 s, ess ≤ 5% (ramp)",sp:{os:10,ts:2,pm:null,gm:null}},
+  {id:2,num:[20],den:[1,4,0],lbl:"20 / [s(s+4)]",spec:"OS ≤ 15%, ts ≤ 3 s, PM ≥ 45°",sp:{os:15,ts:3,pm:45,gm:null}},
+  {id:3,num:[8],den:[1,9,20,12],lbl:"8 / [(s+1)(s+2)(s+6)]",spec:"OS ≤ 20%, ts ≤ 4 s, GM ≥ 10 dB",sp:{os:20,ts:4,pm:null,gm:10}},
+  {id:4,num:[15],den:[1,10,21,0],lbl:"15 / [s(s+3)(s+7)]",spec:"OS ≤ 10%, ts ≤ 2.5 s, PM ≥ 50°",sp:{os:10,ts:2.5,pm:50,gm:null}},
+  {id:5,num:[5,10],den:[1,7,16,10],lbl:"5(s+2) / [(s+1)(s²+6s+10)]",spec:"OS ≤ 5%, ts ≤ 3 s, ess = 0",sp:{os:5,ts:3,pm:null,gm:null}},
+  {id:6,num:[12],den:[1,6,21,26],lbl:"12 / [(s+2)(s²+4s+13)]",spec:"OS ≤ 20%, ts ≤ 5 s, PM ≥ 35°",sp:{os:20,ts:5,pm:35,gm:null}},
+  {id:7,num:[6],den:[1,2,5,0],lbl:"6 / [s(s²+2s+5)]",spec:"OS ≤ 15%, ts ≤ 4 s, GM ≥ 8 dB",sp:{os:15,ts:4,pm:null,gm:8}},
+  {id:8,num:[25],den:[1,6,16,26,15],lbl:"25 / [(s+1)(s+3)(s²+2s+5)]",spec:"OS ≤ 10%, ts ≤ 5 s, PM ≥ 45°",sp:{os:10,ts:5,pm:45,gm:null}},
+];
+
+// Populate select
+const pSel=document.getElementById('pSel');
+PL.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`Kelompok ${p.id}`;pSel.appendChild(o);});
+pSel.value=2;
+
+// State
+const S={pi:2,ctrl:'none',tEnd:15,pid:{Kp:2,Ki:0.5,Kd:0.2},ld:{K:1,al:5,T:0.3},lg:{K:1,be:5,T:5},ll:{K:1,al:5,T1:0.3,be:5,T2:5},tpm:50};
+
+// Chart refs
+let CH={step:null,mag:null,ph:null};
+
+function cTF(){
+  const{ctrl,pid,ld,lg,ll}=S;
+  if(ctrl==='pid'){const{Kp,Ki,Kd}=pid;return{num:[Kd,Kp,Ki],den:[1,0]};}
+  if(ctrl==='lead'){const{K,al,T}=ld;return{num:[K*al*T,K],den:[T,1]};}
+  if(ctrl==='lag'){const{K,be,T}=lg;return{num:[K*T,K],den:[be*T,1]};}
+  if(ctrl==='leadlag'){const{K,al,T1,be,T2}=ll;return{num:pMul([K*al*T1,K],[T2,1]),den:pMul([T1,1],[be*T2,1])};}
+  return{num:[1],den:[1]};
+}
+
+function metHtml(items){
+  return items.map(({v,u,l,good})=>{
+    const col=good===undefined?'var(--color-text-primary)':good?'var(--color-text-success)':'var(--color-text-danger)';
+    const d=v!=null?v+u:' — ';
+    return`<div class="met"><div class="mv" style="color:${col}">${d}</div><div class="ml">${l}</div></div>`;
+  }).join('');
+}
+
+function upd(){
+  const P=PL[S.pi];
+  document.getElementById('pLbl').textContent='G(s) = '+P.lbl;
+  document.getElementById('specBadge').textContent=P.spec;
+
+  const c=cTF();
+  const olN=pMul(c.num,P.num),olD=pMul(c.den,P.den);
+  const clN=olN,clD=pAdd(olD,olN);
+  const cbN=P.num,cbD=pAdd(P.den,P.num);
+
+  const T=S.tEnd,N=350;
+  const stB=stepResp(cbN,cbD,T,N);
+  const stC=S.ctrl==='none'?null:stepResp(clN,clD,T,N);
+
+  const bdG=bodeCalc(P.num,P.den,200);
+  const bdL=bodeCalc(olN,olD,200);
+  const mG=margins(bdG),mL=margins(bdL);
+
+  const mB=stepMet(stB),mC=stC?stepMet(stC):null;
+
+  // OL margins
+  document.getElementById('margOL').innerHTML=metHtml([
+    {v:mG.pm,u:'°',l:'PM (OL)',good:mG.pm>30},{v:mG.gm,u:' dB',l:'GM (OL)',good:mG.gm>6},{v:mG.wcg,u:' r/s',l:'ωcg'},
+  ]);
+
+  // Step metrics
+  const sm=[{v:mB.os,u:'%',l:'OS (no ctrl)'},{v:mB.ts,u:' s',l:'ts (no ctrl)'},{v:mB.yss,u:'',l:'yss'}];
+  if(mC){sm.push({v:mC.os,u:'%',l:'OS (ctrl)',good:mC.os<=(P.sp.os||20)});sm.push({v:mC.ts,u:' s',l:'ts (ctrl)',good:mC.ts<=(P.sp.ts||10)});}
+  document.getElementById('stepMet').innerHTML=metHtml(sm);
+
+  // Bode metrics
+  const bm=S.ctrl==='none'?mG:mL;
+  document.getElementById('bodeMet').innerHTML=metHtml([
+    {v:bm.pm,u:'°',l:'PM',good:bm.pm>40},{v:bm.gm,u:' dB',l:'GM',good:bm.gm>6},{v:bm.wcg,u:' r/s',l:'ωcg'},{v:bm.wcp,u:' r/s',l:'ωcp'},
+  ]);
+
+  // Loop margins + spec check
+  if(S.ctrl!=='none'){
+    document.getElementById('cmargins').style.display='block';
+    document.getElementById('margLoop').innerHTML=metHtml([
+      {v:mL.pm,u:'°',l:'PM (loop)',good:mL.pm>40},{v:mL.gm,u:' dB',l:'GM (loop)',good:mL.gm>6},
+    ]);
+    let ck='';const sp=P.sp;
+    if(sp.os&&mC)ck+=`<span class="${mC.os<=sp.os?'bOK':'bNG'}">OS: ${mC.os}% ${mC.os<=sp.os?'✓':'✗'}</span> `;
+    if(sp.ts&&mC)ck+=`<span class="${mC.ts<=sp.ts?'bOK':'bNG'}">ts: ${mC.ts}s ${mC.ts<=sp.ts?'✓':'✗'}</span> `;
+    if(sp.pm)ck+=`<span class="${mL.pm>=sp.pm?'bOK':'bNG'}">PM: ${mL.pm}° ${mL.pm>=sp.pm?'✓':'✗'}</span> `;
+    if(sp.gm)ck+=`<span class="${mL.gm>=sp.gm?'bOK':'bNG'}">GM: ${mL.gm}dB ${mL.gm>=sp.gm?'✓':'✗'}</span> `;
+    document.getElementById('specChecks').innerHTML=ck;
+  }else{
+    document.getElementById('cmargins').style.display='none';
+  }
+
+  // TF displays
+  const{pid,ld,lg,ll}=S;
+  document.getElementById('pidTF').textContent=`= (${pid.Kd}s² + ${pid.Kp}s + ${pid.Ki}) / s`;
+  document.getElementById('leadTF').innerHTML=`Gc = K·(αTs+1)/(Ts+1)<br>= ${ld.K}·(${(ld.al*ld.T).toFixed(4)}s+1)/(${ld.T}s+1)<br><span style="font-size:10px;color:var(--color-text-secondary)">z=${+(1/(ld.al*ld.T)).toFixed(3)} | p=${+(1/ld.T).toFixed(3)} r/s</span>`;
+  document.getElementById('lagTF').innerHTML=`Gc = K·(Ts+1)/(βTs+1)<br>= ${lg.K}·(${lg.T}s+1)/(${+(lg.be*lg.T).toFixed(2)}s+1)<br><span style="font-size:10px;color:var(--color-text-secondary)">z=${+(1/lg.T).toFixed(4)} | p=${+(1/(lg.be*lg.T)).toFixed(4)} r/s<br>Reduksi HF: 1/β = ${+(1/lg.be).toFixed(3)}</span>`;
+
+  // Chart updates
+  const refPts=stB.map(d=>({x:d.x,y:1}));
+  CH.step.data.datasets[0].data=stB;
+  CH.step.data.datasets[1].data=stC||[];
+  CH.step.data.datasets[2].data=refPts;
+  CH.step.update();
+
+  const magG=bdG.filter(d=>d&&d.mag!=null).map(d=>({x:d.lw,y:d.mag}));
+  const magL=bdL.filter(d=>d&&d.mag!=null).map(d=>({x:d.lw,y:d.mag}));
+  const phG=bdG.filter(Boolean).map(d=>({x:d.lw,y:d.ph}));
+  const phL=bdL.filter(Boolean).map(d=>({x:d.lw,y:d.ph}));
+  const r0=[{x:-2,y:0},{x:4,y:0}],r180=[{x:-2,y:-180},{x:4,y:-180}];
+  CH.mag.data.datasets[0].data=magG;
+  CH.mag.data.datasets[1].data=S.ctrl!=='none'?magL:[];
+  CH.mag.data.datasets[2].data=r0;
+  CH.mag.update();
+  CH.ph.data.datasets[0].data=phG;
+  CH.ph.data.datasets[1].data=S.ctrl!=='none'?phL:[];
+  CH.ph.data.datasets[2].data=r180;
+  CH.ph.update();
+}
+
+function initCharts(){
+  const base={type:'line',options:{parsing:false,animation:false,responsive:true,maintainAspectRatio:false,elements:{point:{radius:0},line:{tension:0}},plugins:{legend:{display:false}}}};
+  const wFmt=v=>{const m={'-2':'0.01','-1':'0.1','0':'1','1':'10','2':'100','3':'1k'};return m[String(Math.round(v))]||null;};
+  const xBode={type:'linear',min:-2,max:4,ticks:{callback:wFmt,maxTicksLimit:7,font:{size:9}},title:{display:true,text:'ω (rad/s)',font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}};
+
+  CH.step=new Chart(document.getElementById('cStep'),{
+    ...base,
+    data:{datasets:[
+      {label:'No ctrl',data:[],borderColor:'#9CA3AF',borderWidth:2,borderDash:[5,4]},
+      {label:'With ctrl',data:[],borderColor:'#2563EB',borderWidth:2.5},
+      {label:'Ref',data:[],borderColor:'#EF4444',borderWidth:1.5,borderDash:[4,3]},
+    ]},
+    options:{...base.options,scales:{
+      x:{type:'linear',ticks:{font:{size:10}},title:{display:true,text:'t (s)',font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},
+      y:{ticks:{font:{size:10}},title:{display:true,text:'y(t)',font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},
+    },plugins:{...base.options.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(4)}`},mode:'index',intersect:false}}}
+  });
+
+  CH.mag=new Chart(document.getElementById('cMag'),{
+    ...base,
+    data:{datasets:[
+      {label:'G(s)',data:[],borderColor:'#9CA3AF',borderWidth:1.5},
+      {label:'CG(s)',data:[],borderColor:'#2563EB',borderWidth:2},
+      {label:'0 dB',data:[],borderColor:'#EF4444',borderWidth:1,borderDash:[4,3]},
+    ]},
+    options:{...base.options,scales:{x:{...xBode},y:{ticks:{font:{size:9}},title:{display:true,text:'dB',font:{size:9}},grid:{color:'rgba(128,128,128,0.1)'}}}}
+  });
+
+  CH.ph=new Chart(document.getElementById('cPh'),{
+    ...base,
+    data:{datasets:[
+      {label:'G(s)',data:[],borderColor:'#9CA3AF',borderWidth:1.5},
+      {label:'CG(s)',data:[],borderColor:'#2563EB',borderWidth:2},
+      {label:'-180°',data:[],borderColor:'#EF4444',borderWidth:1,borderDash:[4,3]},
+    ]},
+    options:{...base.options,scales:{x:{...xBode},y:{ticks:{font:{size:9}},title:{display:true,text:'°',font:{size:9}},grid:{color:'rgba(128,128,128,0.1)'}}}}
+  });
+}
+
+// === EVENTS ===
+function bindSl(id,vidOrFn,fn,fmt){
+  document.getElementById(id).addEventListener('input',e=>{
+    const v=+e.target.value;
+    if(typeof vidOrFn==='string'){document.getElementById(vidOrFn).textContent=fmt?fmt(v):v;}
+    fn(v);upd();
+  });
+}
+
+pSel.addEventListener('change',e=>{S.pi=+e.target.value;upd();});
+document.querySelectorAll('.ctrl-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.ctrl-tab').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');S.ctrl=btn.dataset.c;
+    document.querySelectorAll('#cpanels>div').forEach(p=>p.classList.remove('vis'));
+    document.getElementById('cp-'+S.ctrl).classList.add('vis');
+    upd();
+  });
+});
+
+bindSl('slKp','vKp',v=>S.pid.Kp=v);
+bindSl('slKi','vKi',v=>S.pid.Ki=v);
+bindSl('slKd','vKd',v=>S.pid.Kd=v);
+bindSl('slldK','vldK',v=>S.ld.K=v);
+bindSl('slldAl','vldAl',v=>S.ld.al=v);
+bindSl('slldT','vldT',v=>S.ld.T=v);
+bindSl('sltpm','vtpm',v=>S.tpm=v);
+bindSl('sllgK','vlgK',v=>S.lg.K=v);
+bindSl('sllgBe','vlgBe',v=>S.lg.be=v);
+bindSl('sllgT','vlgT',v=>S.lg.T=v);
+bindSl('slllAl','vllAl',v=>S.ll.al=v);
+bindSl('slllT1','vllT1',v=>S.ll.T1=v);
+bindSl('slllBe','vllBe',v=>S.ll.be=v);
+bindSl('slllT2','vllT2',v=>S.ll.T2=v);
+bindSl('slllK','vllK',v=>S.ll.K=v);
+bindSl('slTend','vTend',v=>S.tEnd=v,v=>v+' s');
+
+document.getElementById('btnZN').addEventListener('click',()=>{
+  const r=znTune(PL[S.pi].num,PL[S.pi].den);
+  const el=document.getElementById('znMsg');
+  if(!r.ok){el.style.background='var(--color-background-danger)';el.style.color='var(--color-text-danger)';el.textContent=r.msg;return;}
+  S.pid={Kp:r.Kp,Ki:r.Ki,Kd:r.Kd};
+  ['Kp','Ki','Kd'].forEach(k=>{document.getElementById('sl'+k).value=r[k];document.getElementById('v'+k).textContent=r[k];});
+  el.style.background='var(--color-background-success)';el.style.color='var(--color-text-success)';
+  el.textContent=r.m===2?`ZN-2: Ku=${r.Ku}, Tu=${r.Tu} s`:`ZN-1: L=${r.L} s, T=${r.T} s`;
+  upd();
+});
+
+document.getElementById('btnLA').addEventListener('click',()=>{
+  const r=leadAuto(PL[S.pi].num,PL[S.pi].den,S.tpm);
+  S.ld.al=r.al;S.ld.T=r.T;
+  document.getElementById('slldAl').value=r.al;document.getElementById('vldAl').textContent=r.al;
+  document.getElementById('slldT').value=r.T;document.getElementById('vldT').textContent=r.T;
+  upd();
+});
+
+initCharts();
+upd();
+</script>
